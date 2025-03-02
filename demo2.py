@@ -1,8 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from PIL import Image, ImageFilter
+from PIL import Image
 import os
-from itertools import combinations
 import random
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog
@@ -11,91 +10,70 @@ from tkinter import filedialog, messagebox, simpledialog
 import matplotlib
 matplotlib.use("TkAgg")
 
-def preprocess_image(image_path):
-    """Preprocess the image to enhance CAPTCHA features."""
+def binary_image_from_path(image_path):
+    """Convert an image to a properly binarized image with adaptive thresholding."""
     image = Image.open(image_path).convert("L")  # Convert to grayscale
-    image = image.filter(ImageFilter.SHARPEN)  # Sharpen the image
-    image = image.filter(ImageFilter.MedianFilter(size=3))  # Reduce noise
-    return image
+    image = np.array(image)
+    
+    # Adaptive thresholding to prevent pixel loss
+    threshold = np.mean(image)  # Dynamic threshold
+    binary_image = (image > threshold).astype(int)
+    
+    return binary_image
 
-def binary_image_from_path(image_path, threshold=128):
-    """Convert an image to a binary image with adaptive thresholding."""
-    image = preprocess_image(image_path)
-    binary_image = np.array(image) > threshold  # Convert to binary
-    return binary_image.astype(int)
 
-def generate_subsets(k):
-    """Generate all subsets of even and odd cardinality."""
-    elements = list(range(k))
-    even_subsets = [set(comb) for r in range(0, k + 1, 2) for comb in combinations(elements, r)]
-    odd_subsets = [set(comb) for r in range(1, k + 1, 2) for comb in combinations(elements, r)]
-    return even_subsets, odd_subsets
-
-def construct_matrices(k):
-    """Construct C0 and C1 matrices based on even and odd subsets."""
-    even_subsets, odd_subsets = generate_subsets(k)
-    num_columns = len(even_subsets)
-    C0 = np.zeros((k, num_columns), dtype=int)
-    C1 = np.zeros((k, num_columns), dtype=int)
-    for i in range(k):
-        for j, subset in enumerate(even_subsets):
-            if i in subset:
-                C0[i, j] = 1
-        for j, subset in enumerate(odd_subsets):
-            if i in subset:
-                C1[i, j] = 1
+def generate_matrices_2x2():
+    """Generate structured subpixel matrices for visual secret sharing (2x2)."""
+    C0 = np.array([[[0, 0], [1, 1]], [[1, 1], [0, 0]], [[0, 1], [0, 1]], [[1, 0], [1, 0]], [[1, 0], [0, 1]], [[0, 1], [1, 0]]])
+    C1 = 1 - C0  # Complement matrices for black pixel encoding
     return C0, C1
 
-def generate_random_functions(n, k):
-    """Generate a collection of random functions mapping {1..n} -> {1..k}."""
-    return [lambda x, k=k: random.randint(0, k - 1) for _ in range(n * k)]
 
-def save_share(share, filename):
-    """Save a share as an image, converting it to uint8 format."""
-    share = (share * 255).astype(np.uint8)  # Convert binary to grayscale and ensure uint8 format
-    img = Image.fromarray(share)
-    img.save(filename)
-
-def construct_shares_k_out_n(image, k, n, image_label):
-    """Generate and save shares."""
+def construct_shares_2x2(image, n, image_label):
+    """Generate shares while preserving subpixel integrity."""
     height, width = image.shape
-    C0, C1 = construct_matrices(k)
-    num_subpixels = C0.shape[1]
-    shares = np.zeros((n, height, width * num_subpixels), dtype=int)
-    H = generate_random_functions(n, k)
-
+    C0, C1 = generate_matrices_2x2()
+    num_patterns = C0.shape[0]
+    
+    shares = np.zeros((n, height, width, 2, 2), dtype=int)
+    
     for i in range(height):
         for j in range(width):
             pixel = image[i, j]
-            subpixel_pattern = C0 if pixel == 0 else C1
-            permuted_pattern = subpixel_pattern[:, np.random.permutation(num_subpixels)]
-            for participant in range(n):
-                h = H[random.randint(0, len(H) - 1)]
-                row_index = h(participant)
-                shares[participant, i, j * num_subpixels: (j + 1) * num_subpixels] = permuted_pattern[row_index]
-
+            pattern_idx = random.randint(0, num_patterns - 1)  # Random pattern choice
+            selected_pattern = C0[pattern_idx] if pixel == 0 else C1[pattern_idx]
+            
+            # Random column permutation for each share
+            for s in range(n):
+                shares[s, i, j] = selected_pattern
+    
     os.makedirs("shares", exist_ok=True)
-    for i in range(n):
-        filename = f"shares/{image_label}_Share_{i + 1}.png"
-        save_share(shares[i], filename)
+    for s in range(n):
+        filename = f"shares/{image_label}_Share_{s + 1}.png"
+        save_share(shares[s], filename)
     
     messagebox.showinfo("Success", "Shares generated successfully!")
 
-def reconstruct_image(selected_shares):
-    """Reconstruct the image from selected shares."""
-    height, full_width = selected_shares[0].shape
-    num_subpixels = full_width // selected_shares[0].shape[1]
-    width = full_width // num_subpixels
-    reconstructed = np.zeros((height, width), dtype=int)
 
+def save_share(share, filename):
+    """Save a share as an image."""
+    share = (share * 255).astype(np.uint8)
+    img = Image.fromarray(share.reshape(share.shape[0] * 2, share.shape[1] * 2))
+    img.save(filename)
+
+
+def reconstruct_image_2x2(selected_shares):
+    """Reconstruct the image from stacked shares while maintaining subpixel alignment."""
+    height, width, _, _ = selected_shares[0].shape
+    reconstructed = np.zeros((height, width), dtype=int)
+    
     for i in range(height):
         for j in range(width):
-            subpixel_sum = np.zeros(num_subpixels, dtype=int)
-            for share in selected_shares:
-                subpixel_sum |= share[i, j * num_subpixels: (j + 1) * num_subpixels]
-            reconstructed[i, j] = 1 if np.sum(subpixel_sum) == num_subpixels else 0
-
+            stacked = np.bitwise_or.reduce([share[i, j] for share in selected_shares])
+            reconstructed[i, j] = 1 if np.all(stacked == 1) else 0
+    
     return reconstructed
+
 
 def display_image(image, title):
     """Display an image."""
@@ -104,21 +82,22 @@ def display_image(image, title):
     plt.axis("off")
     plt.show()
 
+
 def share_construction():
     """Handle the share construction process through GUI."""
-    file_path = filedialog.askopenfilename(title="Select an image", filetypes=[("Image files", "*.jpeg"),("Image files", "*.png")])
+    file_path = filedialog.askopenfilename(title="Select an image", filetypes=[("Image files", "*.jpeg;*.png")])
     if not file_path:
         return
 
     image_label = os.path.splitext(os.path.basename(file_path))[0]
-    k = simpledialog.askinteger("Input", "Enter the minimum number of shares required for reconstruction (k):")
     n = simpledialog.askinteger("Input", "Enter the total number of shares to generate (n):")
-
-    if not k or not n:
+    
+    if not n:
         return
 
     binary_image = binary_image_from_path(file_path)
-    construct_shares_k_out_n(binary_image, k, n, image_label)
+    construct_shares_2x2(binary_image, n, image_label)
+
 
 def share_reconstruction():
     """Handle the share reconstruction process through GUI."""
@@ -131,16 +110,17 @@ def share_reconstruction():
         file_path = filedialog.askopenfilename(title=f"Select share {i + 1}", filetypes=[("PNG files", "*.png")])
         if not file_path:
             return
-        selected_shares.append(np.array(Image.open(file_path).convert("L")) > 128)
-
+        selected_shares.append(np.array(Image.open(file_path).convert("L")).reshape(-1, 2, 2) > 128)
+    
     selected_shares = [share.astype(int) for share in selected_shares]
-    reconstructed_image = reconstruct_image(selected_shares)
+    reconstructed_image = reconstruct_image_2x2(selected_shares)
     display_image(reconstructed_image, "Reconstructed Image")
+
 
 def main():
     """Main function to create GUI."""
     root = tk.Tk()
-    root.title("Secret Sharing Scheme")
+    root.title("Visual Secret Sharing")
     root.geometry("400x200")
 
     tk.Label(root, text="Choose an option:", font=("Arial", 14)).pack(pady=20)

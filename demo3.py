@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from PIL import Image, ImageFilter
+from PIL import Image
 import os
 from itertools import combinations
 import random
@@ -11,18 +11,16 @@ from tkinter import filedialog, messagebox, simpledialog
 import matplotlib
 matplotlib.use("TkAgg")
 
-def preprocess_image(image_path):
-    """Preprocess the image to enhance CAPTCHA features."""
+def binary_image_from_path(image_path):
+    """Convert an image to a properly binarized image with adaptive thresholding."""
     image = Image.open(image_path).convert("L")  # Convert to grayscale
-    image = image.filter(ImageFilter.SHARPEN)  # Sharpen the image
-    image = image.filter(ImageFilter.MedianFilter(size=3))  # Reduce noise
-    return image
-
-def binary_image_from_path(image_path, threshold=128):
-    """Convert an image to a binary image with adaptive thresholding."""
-    image = preprocess_image(image_path)
-    binary_image = np.array(image) > threshold  # Convert to binary
-    return binary_image.astype(int)
+    image = np.array(image)
+    
+    # Adaptive thresholding to prevent pixel loss
+    threshold = np.mean(image)  # Dynamic threshold
+    binary_image = (image > threshold).astype(int)
+    
+    return binary_image
 
 def generate_subsets(k):
     """Generate all subsets of even and odd cardinality."""
@@ -57,43 +55,56 @@ def save_share(share, filename):
     img.save(filename)
 
 def construct_shares_k_out_n(image, k, n, image_label):
-    """Generate and save shares."""
+    """Generate and save shares while maintaining subpixel integrity."""
     height, width = image.shape
     C0, C1 = construct_matrices(k)
     num_subpixels = C0.shape[1]
-    shares = np.zeros((n, height, width * num_subpixels), dtype=int)
-    H = generate_random_functions(n, k)
+
+    # Shares are now stored as 3D arrays (preserve subpixel structures)
+    shares = np.zeros((n, height, width, num_subpixels), dtype=int)
 
     for i in range(height):
         for j in range(width):
             pixel = image[i, j]
-            subpixel_pattern = C0 if pixel == 0 else C1
+            subpixel_pattern = C0 if pixel == 0 else C1  # Select appropriate pattern
             permuted_pattern = subpixel_pattern[:, np.random.permutation(num_subpixels)]
+            
             for participant in range(n):
-                h = H[random.randint(0, len(H) - 1)]
-                row_index = h(participant)
-                shares[participant, i, j * num_subpixels: (j + 1) * num_subpixels] = permuted_pattern[row_index]
+                row_index = participant % k  # Ensure subpixel alignment
+                shares[participant, i, j, :] = permuted_pattern[row_index]
 
+    # Save shares as images
     os.makedirs("shares", exist_ok=True)
     for i in range(n):
         filename = f"shares/{image_label}_Share_{i + 1}.png"
-        save_share(shares[i], filename)
-    
+        save_share(shares[i].reshape(height, width * num_subpixels), filename)
+
     messagebox.showinfo("Success", "Shares generated successfully!")
 
 def reconstruct_image(selected_shares):
-    """Reconstruct the image from selected shares while keeping the share size."""
-    height, width = selected_shares[0].shape
+    """Reconstruct the original image while preserving subpixel integrity."""
+    height, full_width = selected_shares[0].shape
+    num_subpixels = full_width // selected_shares[0].shape[1]
+    width = full_width // num_subpixels
+    
+    # Correct subpixel alignment
     reconstructed = np.zeros((height, width), dtype=int)
 
-    # Use logical OR to stack all shares properly
-    reconstructed = np.logical_or.reduce(selected_shares).astype(int)
+    for i in range(height):
+        for j in range(width):
+            combined_subpixels = np.zeros(num_subpixels, dtype=int)
+            
+            # Sum the subpixels from all shares
+            for share in selected_shares:
+                combined_subpixels += share[i, j * num_subpixels: (j + 1) * num_subpixels]
+            
+            # If the sum of subpixels is greater than or equal to k/2, mark as white
+            reconstructed[i, j] = 1 if np.sum(combined_subpixels) >= (len(selected_shares) / 2) else 0
 
     return reconstructed
 
 def display_image(image, title):
     """Display an image."""
-    plt.figure(figsize=(5, 5))
     plt.imshow(image, cmap="gray")
     plt.title(title)
     plt.axis("off")

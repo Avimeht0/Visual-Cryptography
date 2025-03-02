@@ -1,32 +1,29 @@
 from captcha.image import ImageCaptcha
 import random
 import string
-import os
+from PIL import Image, ImageDraw, ImageFont
 
-# Function to generate a random CAPTCHA string
-def generate_captcha_text(length=6):
-    characters = string.ascii_uppercase + string.digits  # Characters for the CAPTCHA
-    captcha_text = ''.join(random.choice(characters) for _ in range(length))
-    return captcha_text
-
-# Function to create a CAPTCHA image with the filename as the text
-def generate_captcha_image():
-    captcha_text = generate_captcha_text()  # Generate random text
-    image = ImageCaptcha(width=280, height=90)
+def generate_captcha(text=None, width=200, height=100, font_size=50):
+    """Generate a black and white CAPTCHA image and save it with the text as filename."""
+    image = ImageCaptcha(width=width, height=height, font_sizes=[font_size])
     
-    # Directory to save the captcha
-    captcha_directory = './captchas'  # Path to your 'captchas' directory
-
-    # Ensure the directory exists
-    if not os.path.exists(captcha_directory):
-        os.makedirs(captcha_directory)  # Create the directory if it doesn't exist
+    if text is None:
+        text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))  # Random 5-character CAPTCHA
     
-    # File path where the image will be saved
-    filename = os.path.join(captcha_directory, f'{captcha_text}.png')  # Save file inside 'captchas'
+    captcha_image = image.generate_image(text).convert("L")  # Convert to black and white (grayscale)
     
-    # Generate and save the CAPTCHA image
-    image.write(captcha_text, filename)  # Save the image with the filename
-    print(f'Captcha text: {captcha_text}, saved as: {filename}')
-
-# Generate and save CAPTCHA image
-generate_captcha_image()
+    # Add text to the image
+    draw = ImageDraw.Draw(captcha_image)
+    font = ImageFont.load_default()  # Default font (you can specify a TTF font if needed)
+    
+    text_bbox = draw.textbbox((0, 0), text, font=font)
+    text_width, text_height = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
+    position = ((width - text_width) // 2, (height - text_height) // 2)
+    draw.text(position, text, font=font, fill=0)  # Write text in black
+    
+    output_file = f"{text}.png"  # Save file with CAPTCHA text as the filename
+    captcha_image.save(output_file)
+    print(f"CAPTCHA generated: {text} (saved as {output_file})")
+    
+if __name__ == "__main__":
+    generate_captcha()
