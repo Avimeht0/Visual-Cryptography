@@ -45,3 +45,5 @@ def share_construction():
 
     binary_image = binary_image_from_path(file_path)
     construct_shares_k_out_n(binary_image, k, n, image_label)
+
+
