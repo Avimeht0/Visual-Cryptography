@@ -1,29 +1,31 @@
 from captcha.image import ImageCaptcha
 import random
 import string
-from PIL import Image, ImageDraw, ImageFont
 
-def generate_captcha(text=None, width=200, height=100, font_size=50):
-    """Generate a black and white CAPTCHA image and save it with the text as filename."""
-    image = ImageCaptcha(width=width, height=height, font_sizes=[font_size])
+# Function to generate a random string for the captcha text
+def random_string(length=5):
+    letters = string.ascii_uppercase + string.digits
+    return ''.join(random.choice(letters) for _ in range(length))
+
+# Function to generate black-and-white captcha
+def generate_captcha(text):
+    image = ImageCaptcha(width=280, height=90, font_sizes=[40])
     
-    if text is None:
-        text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))  # Random 5-character CAPTCHA
+    # Set background color to white and text color to black
+    image_background_color = (255, 255, 255)  # White background
+    text_color = (0, 0, 0)  # Black text
     
-    captcha_image = image.generate_image(text).convert("L")  # Convert to black and white (grayscale)
+    # Write the captcha text on the image
+    captcha_image = image.generate_image(text)
     
-    # Add text to the image
-    draw = ImageDraw.Draw(captcha_image)
-    font = ImageFont.load_default()  # Default font (you can specify a TTF font if needed)
+    # Convert image to black and white (thresholding)
+    captcha_image = captcha_image.convert("1")  # 1 is for 1-bit pixels (black and white)
     
-    text_bbox = draw.textbbox((0, 0), text, font=font)
-    text_width, text_height = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
-    position = ((width - text_width) // 2, (height - text_height) // 2)
-    draw.text(position, text, font=font, fill=0)  # Write text in black
-    
-    output_file = f"{text}.png"  # Save file with CAPTCHA text as the filename
-    captcha_image.save(output_file)
-    print(f"CAPTCHA generated: {text} (saved as {output_file})")
-    
-if __name__ == "__main__":
-    generate_captcha()
+    # Save the generated captcha image
+    captcha_image.save(f'captcha_{text}.png')
+
+    print(f"Captcha image saved as captcha_{text}.png")
+
+# Generate a random captcha text
+captcha_text = random_string()  # Generate random text
+generate_captcha(captcha_text)  # Generate and save the captcha

@@ -1,9 +1,6 @@
 import tkinter as tk
-from tkinter import simpledialog
 from share_construction import share_construction
 from share_reconstruction import share_reconstruction
-from share_construction import share_construction
-
 
 def main():
     """Main function to create GUI."""
