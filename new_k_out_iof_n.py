@@ -1,190 +1,132 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from PIL import Image, ImageTk
-from itertools import combinations
-import random
+from PIL import Image
 import os
+import random
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog
 
-def color_image_from_path(image_path):
-    """Load a color image and split into R, G, B channels."""
-    image = Image.open(image_path).convert("RGB")
-    return np.array(image)
+# Fix for Matplotlib GTK errors
+import matplotlib
+matplotlib.use("TkAgg")
 
-def generate_subsets(k):
-    """Generate all subsets of even and odd cardinality."""
-    elements = list(range(k))
-    even_subsets = [set(comb) for r in range(0, k + 1, 2) for comb in combinations(elements, r)]
-    odd_subsets = [set(comb) for r in range(1, k + 1, 2) for comb in combinations(elements, r)]
-    return even_subsets, odd_subsets
+def binary_image_from_path(image_path, threshold=128):
+    """Convert an image to a binary image."""
+    image = Image.open(image_path).convert("L")  # Convert to grayscale
+    binary_image = np.array(image) > threshold  # Convert to binary
+    return binary_image.astype(int)
 
-def construct_matrices(k):
-    """Construct C0 and C1 matrices based on even and odd subsets."""
-    even_subsets, odd_subsets = generate_subsets(k)
-    num_columns = len(even_subsets)
-    C0 = np.zeros((k, num_columns), dtype=int)
-    C1 = np.zeros((k, num_columns), dtype=int)
-    for i in range(k):
-        for j, subset in enumerate(even_subsets):
-            if i in subset:
-                C0[i, j] = 1
-        for j, subset in enumerate(odd_subsets):
-            if i in subset:
-                C1[i, j] = 1
-    return C0, C1
+def generate_shares(image, k, n):
+    """Generate n shares for the image using modular arithmetic."""
+    height, width = image.shape
+    prime = 257  # A prime number larger than the maximum pixel value (255)
+    shares = np.zeros((n, height, width), dtype=int)
 
-def generate_random_functions(n, k):
-    """Generate a collection of random functions mapping {1..n} -> {1..k}."""
-    return [lambda x, k=k: random.randint(0, k - 1) for _ in range(n * k)]
+    for i in range(height):
+        for j in range(width):
+            pixel = image[i, j]
+            coefficients = [random.randint(0, prime - 1) for _ in range(k - 1)]
+            coefficients.insert(0, pixel)  # First coefficient is the pixel value
+
+            for share_idx in range(n):
+                x = share_idx + 1
+                y = sum(coeff * (x ** idx) for idx, coeff in enumerate(coefficients)) % prime
+                shares[share_idx, i, j] = y
+
+    return shares
+
+def reconstruct_image(selected_shares):
+    """Reconstruct the image from k selected shares using Lagrange interpolation."""
+    k = len(selected_shares)
+    height, width = selected_shares[0].shape
+    prime = 257
+    reconstructed = np.zeros((height, width), dtype=int)
+
+    for i in range(height):
+        for j in range(width):
+            x_values = [share_idx + 1 for share_idx in range(k)]
+            y_values = [selected_shares[share_idx][i, j] for share_idx in range(k)]
+
+            # Lagrange interpolation to recover the original pixel
+            secret = 0
+            for idx in range(k):
+                numerator, denominator = 1, 1
+                for m in range(k):
+                    if m != idx:
+                        numerator = (numerator * (-x_values[m])) % prime
+                        denominator = (denominator * (x_values[idx] - x_values[m])) % prime
+                term = (y_values[idx] * numerator * pow(denominator, -1, prime)) % prime
+                secret = (secret + term) % prime
+
+            reconstructed[i, j] = secret
+
+    return reconstructed
 
 def save_share(share, filename):
     """Save a share as an image, converting it to uint8 format."""
     share = (share * 255).astype(np.uint8)  # Convert binary to grayscale and ensure uint8 format
-    img = Image.fromarray(share)  
+    img = Image.fromarray(share)
     img.save(filename)
 
-def construct_shares_k_out_n_color(image, k, n, image_name):
-    """Generate and save shares for a color image."""
-    height, width, _ = image.shape
-    C0, C1 = construct_matrices(k)
-    num_subpixels = C0.shape[1]
-    shares = np.zeros((n, height, width * num_subpixels, 3), dtype=int)
-    H = generate_random_functions(n, k)
+def display_image(image, title):
+    """Display an image."""
+    plt.imshow(image, cmap="gray")
+    plt.title(title)
+    plt.axis("off")
+    plt.show()
 
-    for c in range(3):  # Process R, G, and B channels separately
-        for i in range(height):
-            for j in range(width):
-                pixel = image[i, j, c]
-                subpixel_pattern = C0 if pixel < 128 else C1
-                permuted_pattern = subpixel_pattern[:, np.random.permutation(num_subpixels)]
-                for participant in range(n):
-                    h = H[random.randint(0, len(H) - 1)]
-                    row_index = h(participant)
-                    shares[participant, i, j * num_subpixels: (j + 1) * num_subpixels, c] = permuted_pattern[row_index]
+def share_construction():
+    """Handle the share construction process through GUI."""
+    file_path = filedialog.askopenfilename(title="Select an image", filetypes=[("Image files", "*.jpeg"), ("Image files", "*.png")])
+    if not file_path:
+        return
+
+    image_label = os.path.splitext(os.path.basename(file_path))[0]
+    k = simpledialog.askinteger("Input", "Enter the minimum number of shares required for reconstruction (k):")
+    n = simpledialog.askinteger("Input", "Enter the total number of shares to generate (n):")
+
+    if not k or not n:
+        return
+
+    binary_image = binary_image_from_path(file_path)
+    shares = generate_shares(binary_image, k, n)
 
     os.makedirs("shares", exist_ok=True)
-    for i in range(n):
-        # Extract the base name of the image (without extension)
-        base_name = os.path.splitext(os.path.basename(image_name))[0]
-        filename = f"shares/{base_name}_share{i + 1}.png"
-        save_share(shares[i], filename)
-        print(f"Saved: {filename}")
-
-    return shares
-
-def reconstruct_image_color(selected_shares, k, n):
-    """Reconstruct the color image from selected shares."""
-    height, full_width, _ = selected_shares[0].shape
-    num_subpixels = full_width // selected_shares[0].shape[1]
-    width = full_width // num_subpixels
-    reconstructed = np.zeros((height, width, 3), dtype=int)
-
-    for c in range(3):  # Process R, G, and B channels separately
-        for i in range(height):
-            for j in range(width):
-                subpixel_sum = np.zeros(num_subpixels, dtype=int)
-                for share in selected_shares:
-                    subpixel_sum |= share[i, j * num_subpixels: (j + 1) * num_subpixels, c]
-                reconstructed[i, j, c] = 255 if np.sum(subpixel_sum) == num_subpixels else 0
-
-    return reconstructed
-
-class VisualCryptographyApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Visual Cryptography")
-        
-        self.image_path = None
-        self.shares = None  # Initialize shares as None
-        self.k = None
-        self.n = None
-        
-        # GUI Elements
-        self.load_button = tk.Button(root, text="Load Image", command=self.load_image)
-        self.load_button.pack()
-        
-        self.generate_button = tk.Button(root, text="Generate Shares", command=self.generate_shares)
-        self.generate_button.pack()
-        
-        self.reconstruct_button = tk.Button(root, text="Reconstruct Image", command=self.reconstruct_image)
-        self.reconstruct_button.pack()
-        
-        self.exit_button = tk.Button(root, text="Exit", command=self.root.quit)
-        self.exit_button.pack()
-        
-        self.image_label = tk.Label(root)
-        self.image_label.pack()
-        
-    def load_image(self):
-        """Load an image from the file system."""
-        self.image_path = filedialog.askopenfilename()
-        if self.image_path:
-            self.original_image = color_image_from_path(self.image_path)
-            self.display_image_in_gui(self.original_image, "Original Image")
+    for i, share in enumerate(shares):
+        filename = f"shares/{image_label}_Share_{i + 1}.png"
+        save_share(share, filename)
     
-    def generate_shares(self):
-        """Generate shares from the loaded image."""
-        if not self.image_path:
-            messagebox.showerror("Error", "Please load an image first.")
+    messagebox.showinfo("Success", "Shares generated successfully!")
+
+def share_reconstruction():
+    """Handle the share reconstruction process through GUI."""
+    k = simpledialog.askinteger("Input", "Enter the number of shares you want to use for reconstruction (k):")
+    if not k:
+        return
+
+    selected_shares = []
+    for i in range(k):
+        file_path = filedialog.askopenfilename(title=f"Select share {i + 1}", filetypes=[("PNG files", "*.png")])
+        if not file_path:
             return
-        
-        # Ask for k and n values
-        self.k = simpledialog.askinteger("Input", "Enter k (minimum shares required for reconstruction):", minvalue=2)
-        self.n = simpledialog.askinteger("Input", "Enter n (total number of shares to generate):", minvalue=self.k)
-        
-        if self.k is None or self.n is None:
-            return  # User canceled the input
-        
-        self.shares = construct_shares_k_out_n_color(self.original_image, self.k, self.n, self.image_path)
-        messagebox.showinfo("Success", f"{self.n} shares generated and saved in the 'shares' folder.")
-    
-    def reconstruct_image(self):
-        """Reconstruct the image from the generated shares."""
-        if not self.image_path:
-            messagebox.showerror("Error", "Please load an image first.")
-            return
-        
-        if self.shares is None:
-            # If shares are not generated, ask the user to generate them first
-            generate = messagebox.askyesno("Shares Not Found", "No shares found. Do you want to generate shares now?")
-            if generate:
-                self.generate_shares()
-            else:
-                return  # User chose not to generate shares
-        
-        # Ask for k value
-        k = simpledialog.askinteger("Input", "Enter k (number of shares to use for reconstruction):", minvalue=2, maxvalue=self.n)
-        if k is None:
-            return  # User canceled the input
-        
-        # Ask the user to select k shares
-        share_indices = simpledialog.askstring("Input", f"Enter the indices of {k} shares (comma-separated, e.g., 1,2,3):")
-        if not share_indices:
-            return  # User canceled the input
-        
-        try:
-            selected_indices = [int(idx.strip()) - 1 for idx in share_indices.split(",")]
-            if len(selected_indices) != k or any(idx < 0 or idx >= self.n for idx in selected_indices):
-                raise ValueError("Invalid share indices.")
-        except ValueError as e:
-            messagebox.showerror("Error", f"Invalid input: {e}")
-            return
-        
-        selected_shares = [self.shares[idx] for idx in selected_indices]
-        reconstructed_image = reconstruct_image_color(selected_shares, k, self.n)
-        self.display_image_in_gui(reconstructed_image, "Reconstructed Image")
-    
-    def display_image_in_gui(self, image, title):
-        """Display an image in the GUI."""
-        image = Image.fromarray(image.astype('uint8'))
-        image.thumbnail((300, 300))  # Resize image to fit in the GUI
-        photo = ImageTk.PhotoImage(image)
-        self.image_label.config(image=photo)
-        self.image_label.image = photo  # Keep a reference to avoid garbage collection
-        self.image_label.pack()
+        selected_shares.append(np.array(Image.open(file_path).convert("L")) > 128)
+
+    selected_shares = [share.astype(int) for share in selected_shares]
+    reconstructed_image = reconstruct_image(selected_shares)
+    display_image(reconstructed_image, "Reconstructed Image")
+
+def main():
+    """Main function to create GUI."""
+    root = tk.Tk()
+    root.title("Secret Sharing Scheme")
+    root.geometry("400x200")
+
+    tk.Label(root, text="Choose an option:", font=("Arial", 14)).pack(pady=20)
+    tk.Button(root, text="Share Construction", command=share_construction).pack(pady=5)
+    tk.Button(root, text="Share Reconstruction", command=share_reconstruction).pack(pady=5)
+    tk.Button(root, text="Exit", command=root.quit).pack(pady=5)
+
+    root.mainloop()
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = VisualCryptographyApp(root)
-    root.mainloop()
+    main()

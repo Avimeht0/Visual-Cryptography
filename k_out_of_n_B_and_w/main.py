@@ -6,7 +6,7 @@ def main():
     """Main function to create GUI."""
     root = tk.Tk()
     root.title("Secret Sharing Scheme")
-    root.geometry("400x200")
+    root.geometry("800x400")
 
     tk.Label(root, text="Choose an option:", font=("Arial", 14)).pack(pady=20)
     tk.Button(root, text="Share Construction", command=share_construction).pack(pady=5)
