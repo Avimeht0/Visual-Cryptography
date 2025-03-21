@@ -2,8 +2,6 @@ import os
 import numpy as np
 from tkinter import filedialog, messagebox, simpledialog
 from PIL import Image
-from utils import construct_shares_k_out_n
-
 import random
 from itertools import combinations
 
@@ -12,7 +10,6 @@ def binary_image_from_path(image_path, threshold=128):
     image = Image.open(image_path).convert("L")  # Convert to grayscale
     binary_image = np.array(image) > threshold  # Convert to binary
     return binary_image.astype(int)
-
 
 def generate_subsets(k):
     """Generate all subsets of even and odd cardinality."""
@@ -64,9 +61,16 @@ def construct_shares_k_out_n(image, k, n, image_label):
                 row_index = h(participant)
                 shares[participant, i, j * num_subpixels: (j + 1) * num_subpixels] = permuted_pattern[row_index]
 
+    # Create the main shares directory if it doesn't exist
     os.makedirs("shares", exist_ok=True)
+    
+    # Create a subdirectory named after the image label inside the shares directory
+    image_share_dir = os.path.join("shares", image_label)
+    os.makedirs(image_share_dir, exist_ok=True)
+    
+    # Save each share in the image-specific directory
     for i in range(n):
-        filename = f"shares/{image_label}_Share_{i + 1}.png"
+        filename = os.path.join(image_share_dir, f"{image_label}_Share_{i + 1}.png")
         save_share(shares[i], filename)
     
     messagebox.showinfo("Success", "Shares generated successfully!")
