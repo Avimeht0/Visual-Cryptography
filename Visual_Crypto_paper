@@ -1,0 +1,263 @@
+section 2 The Model 
+The simplest version of the visual secret sharing problem assumes that the mes-
+sage consists of a collection of black and white pixels and each pixel is handled
+separately . Each original pixel appears in n modified versions (called shares),
+one for each transparency. Each share is a collection of m black and white sub-
+pixels, which are printed in close proximity to each other so that the h u m a n
+visual system averages their individual black/white contributions. The result-
+ing structure can be described by an n x m Boolean matrix S = [s_{ij}] where
+s_{ij}= 1 iff the j^{th}  subpixel in t h e i^{ t h} transparency is black. When transparen-
+cies i_1, i_2,. .i_r are stacked together in a way which properly aligns the subpixels,
+we see a combined share whose black subpixels are represented by the Boolean
+"or" of rows i_1, i_2,. .i_r in S. The grey level of this combined share is propor-
+tional to the H a m m i n g weight H ( V ) of the "or"ed m-vector V. This grey level is
+interpreted by the visual system of the users as black if H ( V ) >= d and as white
+if H ( V ) < d - α*m for some fixed threshold 1 <= d <= m and relative difference
+α>0.
+
+This framework resembles the framework of linear codes, with the important
+difference that the underlying algebraic structure is a semi-group rather than a
+group. In particular, the visual effect of a black subpixel in one of the transparen-
+cies cannot be undone by the colour of that subpixel in other transparencies
+which are laid over it. This monotonicity rules out common encryption tech-
+niques which add r a n d o m noise to the cleartext during the encryption process,
+and subtracts the same noise from the ciphertext during the decryption process.
+It also rules out the more natural model in which a white pixel is represented
+by a completely white collection of subpixels and a black pixel is represented by
+a completely black collection of subpixels, and thus we have to use a threshold
+d and relative difference α > 0 to distinguish between the colours.
+
+D e f i n i t i o n 1. A solution to the k out of n visual secret sharing scheme consists
+of two collections of n x m Boolean matrices C_o and C_1. To share a white pixel,
+the deMer randomly chooses one of the matrices in C_o, and to share a black
+pixel, the dealer randomly chooses one of the matrices in C_1. The chosen m a t r i x
+defines the colour of the m subpixels in each one of the n transparencies. The
+solution is considered valid if the following three conditions are met:
+1. For any S in C_o, the "or" V of any k of the n rows satisfies H ( V ) < d - α*m.
+2. For any S in C_1, the "or" V of any k of the n rows satisfies H ( V ) >= d.
+3. For any subset {i_1, i_2.,...i_q} of {1, 2 . . . . n} with q < k, the two collections of
+q*m matrices D_t for t belong to  {0, 1} obtained by restricting each n*m matrix
+in C_t (where t = 0, 1) to rows i_1, i_2 .... , i_q are indistinguishable in the sense
+t h a t they contain the same matrices with the same frequencies.
+Condition 3 implies that by inspecting fewer than k shares, even an infinitely
+powerful cryptanalyst cannot gain any advantage in deciding whether the shared
+pixel was white or black. In most of our constructions, there is a function f such
+t h a t the combined shares from q < k transparencies consist of all the V's with
+H ( V ) = f(q) with uniform probability distribution, regardless of whether the
+matrices were taken from C_o or C_1. Such a scheme is called uniform. The first
+two conditions are called contrast and the third condition is called security.
+
+The i m p o r t a n t parameters of a scheme are:
+-m, the number of pixels in a share. This represents the loss in resolution
+from the original picture to the shared one. We would like m to be as small
+as possible.
+-α, the relative difference in weight between combined shares that come from
+a white pixel and a black pixel in the original picture. This represents the
+loss in contrast. We would like a to be as large as possible.
+-r, the size of the collections Co and C1 (they need not be the same size, but in
+all of our constructions they are). log r represents the number of r a n d o m bits
+needed to generate the shares and does not effect the quality of the picture.
+
+
+R e s u l t s : We have a number of constructions for specific values of k and n. For
+general k we have a construction for the k out k problem with m = 2^{ k-1} and
+α= 1/2^{k-1} and we have a proof of optimality of this scheme. For general k and n
+1
+we have a construction with m = log n*2^{O(klogk)} and α=1/2^{Ω(k)}.
+
+
+
+Section 3 Efficient solution for small k and n 
+The 2 out of n visual secret sharing problem can be solved by the following
+collections of n x n matrices:
+C_0={all the matrices obtained by permuting the columns of [[100...0],
+							    [100...0]
+							    ...
+							    [100..0]]}
+C_1={all the matrices obtained by permuting the columns of [[100...0]
+							    [010...0]
+							    ...
+							    [000...1]]}
+							    
+							    
+Any single share in either C_o or C_1 is a random choice of one black and n - 1
+white subpixels. Any two shares of a white pixel have a combined H a m m i n g
+weight of 1, whereas any two shares of a 1 pixel have a combined H a m m i n g
+weight of 2, which looks darker. The visual difference between the two cases
+becomes clearer as we stack additional transparencies.
+The original problem of visual cryptography is the special case of a 2 out of
+2 visual secret sharing problem. It can be solved with two subpixels per pixel,
+but in practice this can distort the aspect ratio of the original image. It is thus
+
+fig 1.(assume here 1 represent black and 0 white ) horizontal shares [[00]   
+			  [11]] 
+			  or 
+			  [[11]
+			   [00]]
+			   
+vertical shares [[01]
+                 [01]]
+                 or
+                 [[10]
+                  [10]]
+                  
+diagonal shares [[01]
+		 [10]]
+		 or 
+		 [[10]
+		  [01]]
+		  
+that is the above is fig 1 represent 
+
+recommended to use 4 subpixels arranged in a 2 x 2 array where each share has
+one of the visual forms in Figure 1. A white pixel is shared into two identical
+arrays from this list, and a black pixel is shared into two complementary arrays
+from this list. Any single share is a random choice of two black and two white
+subpixels, which looks medium grey. When two shares are stacked together, the
+result is either medium grey (which represents white) or completely black (which
+represents black).
+
+The next case is the 3 out of 3 visual secret sharing problem, which is solved
+by the following scheme:
+
+
+C_0={all the matrices obtained by permuting the columns of [[0011],
+							    [0101]
+							    [0110]]}
+C_1={all the matrices obtained by permuting the columns of [[1100]
+							    [1010]
+							    [1001]]}
+
+Note that the six shares described by the rows of C_o and C_1 are exactly the six
+2 x 2 arrays of subpixels from Fig. 1. Each matrix in either C_o or C_1 contains one
+horizontal share, one vertical share and one diagonal share. Each share contains
+a random selection of two black subpixels, and any pair of shares from one of
+the matrices contains a random selection of one common black subpixel and
+two individual black subpixels. Consequently, the analysis of one or two shares
+makes it impossible to distinguish between Co and Cl. However, a stack of three
+transparencies from Co is only 3/4 black, whereas a stack of three transparencies
+from C1 is completely black.							    
+
+
+The following scheme generalizes this 3 out of 3 scheme into a 3 out of n
+scheme for an arbitrary n >= 3. Let B be the black n x (n - 2) matrix which
+contains only l's, and let I be the identity n x n matrix which contains l's on the
+diagonal and 0's elsewhere. Let BI denote the n x (2n - 2) matrix obtained by
+concatenating B and I, and let c(BI) be the Boolean complement of the matrix
+BI. Then
+Co = {all the matrices obtained by permuting the columns of c(BI)}
+C1 = {all the matrices obtained by permuting the columns of BI}
+
+has the following properties: Any single share contains an arbitrary collection
+of n - 1 black and n - 1 white subpixels; any pair of shares have n - 2 common
+black and two individual black subpixels; any stacked triplet of shares from go
+has n black subpixels, whereas any stacked triplet of shares from C1 has n + 1
+black subpixels.
+The 4 out of 4 visual secret sharing problem can be solved by the shares
+described in Figure 2 (along with all their permutations).
+
+
+fig2.
+shares of a white pixel [[011]
+			 [111]
+			 [000]],
+			 [[010]
+			  [110]
+			  [011]],
+			 [[001]
+			  [110]
+			  [101]],
+			 [[000]
+			  [111]
+			  [110]].
+			  
+			  
+shares of a black pixel [[011]
+			 [011]
+			 [010]],
+			[[010]
+			 [111]
+			 [001]],
+			[[010]
+			 [110]
+			 [110]],
+			[[100]
+			 [111]
+			 [010]].
+Any single share contains 5 black subpixels, any stacked pair of shares con-
+tains 7 black subpixels, any stacked triplet of shares contains 8 black subpixels,
+and any stacked quadruple of shares contains either 8 or 9 black subpixels, de-
+pending on whether the shares were taken from go or gl. It is possible to reduce
+the number of subpixels from 9 to 8, but then they cannot be packed into a
+square array without distorting their aspect ratio.
+
+
+
+Section 4 A general k out of k scheme 
+
+We now describe two general constructions which can solve any k out of k visual
+secret sharing problem by using 2 k and 2 k-1 subpixels respectively. We then
+prove that the second construction is optimal in that any k out k scheme must
+use at least 2 k-1 pixels.
+Construction 1
+To define the two collections of matrices we make use of two lists of vectors
+{j^0}_1,{j^0}_2,...{j^0}_k and {j^1}_1,{j^1}_2,...{j^1}_k. Let {j^0}_1,{j^0}_2,...{j^0}_k be vectors of length k over
+GF[2] with the property that every k - 1 of them are linearly independent over
+GF[2], but the set of all k vectors is not independent. Such a collection can
+be easily constructed, e.g. let {j^0}_i=0^{i-1} * 10^{k-i} for 1<=i<=k and {j^0}_k=1^{k-1}*0 .
+Let {j^1}_1,{j^1}_2,...{j^1}_k be vectors of length k over GF[2] with the property t h a t they
+are linearly independent over GF[2]. (This can be t h o u g h t of as a first order
+Reed-Muller code [7])
+Each list defines a k*2^k matrix S^t   for t belong to  {0, 1} and the collections C_o and
+C_1 are obtained by permuting  the columns of the corresponding m a t r i x in all
+possible ways. We index the columns of S^t by vectors of length k over GF[2].
+For t belong  {0, 1} let S^t be defined as follows: S^t[i,x]= < {J^t}_i , x > for any 1 <= i <= k
+and any vector x of length k over GF[2] where < x, y > denotes the inner
+p r o d u c t over GF[2].
+
+L e m m a 2. The above scheme is a k oul of k scheme with parameters m = 2^k,
+α= 1/2^k and r = 2^k!.(this is proved  lemman )
+
+
+Construction 2
+We now show a slightly better scheme with parameters m = 2^{k-1},  α=1/2^{k-1} and r = 2^{k - 1} ! . Consider a ground set W = {σ_1,σ_2....σ_k} of k elements
+and let π_1,π_2....π_{2^{k-1}}  be a list of all the subsets of even cardinality and let
+σ_1,σ_2....σ_{2^{k-1}} be a list of all the subsets of W of odd cardinality (the order is
+not i m p o r t a n t ) .
+Each list defines the following k x 2^{k-1} matrices S^0 and S^1 : For 1 <= i <= k
+and 1 < j < 2^{k-1} let S^0[i,j]=1 iff e_i belong to π_j and S^1[ i , j ] = 1 iff e_i belong to σ_j .
+As in the construction above, the collections Co and C1 are obtained by per-
+m u t i n g all the columns of the corresponding matrix.
+Lemma3. The above scheme is a k out of k scheme w~th parameters m = 2^{k - 1} ,
+α= 1/2^{k-1}  and r = 2^{k-1}!.(this lemman is also proved )
+
+Theorem4. In any k out k scheme α <= 1/2^{k-1} and m >= 2^{k-1}.
+		
+		
+		
+Section 5 A general k out of n scheme 
+
+In this section we construct a k out of n scheme. W h a t we show is how to go
+from a k out of k scheme to a k out of n scheme.
+Let C be an k out of k visual secret sharing scheme with parameters m, r, α.
+The scheme C consists of two collections of k*m Boolean matrices C_0 ={T^0}_1,{T^0}_2...{T^0}_r and 
+C_1 = {T^1}_1,{T^1}_2 ..{T^1}_r . Furthermore, assume the scheme is uniform, i.e. there is a function f(q) such that for any matrix {T^t}_i where t belong to  {0, 1} and 1 <=i <=r and for every 1 <=q <=k-1 rows of {T^t}_i the H a m m i n g weight of
+
+the "or" of the q rows is f(q) . Note that all our previous constructions have this
+property.
+Let H be a collection of s functions such that
+1. for all h belong to H we have h : {1..n}-> {1..k}
+2. For all subsets B subset {1..n} of size k and for all 1 <=q<=k the probability
+t h a t a randomly chosen h E H yields q different values on B is the same.
+Denote this probability by β_q
+We construct from C and H a k out of n scheme C' as follows:
+The ground set is V = U x H (i.e. it is of size m*l and we consider its
+elements as indexed by a member of U and a member of H).
+- Each 1<=t<=r^l is indexed by a vector (t_1,t_2....t_l) where each 1<= t_i<=r.
+- The matrix {S^b}_t  for t = ( t_1,t_2....t_l )  where b belong to  {0, 1} is defined as
+{S^b}_t[i,(j,h)]={T^b}_t[h(i),j]
+
+Lemma 5. If C is a scheme with parameters m,α,r then C' is  a scheme with parameters m'=m*l,
+α'=α*β_k,r'=r^l.(this lemma is also proved )
+
+Theorem 6. for any n and k there exists a visual secret sharing scheme with parameters m=n^k*2^{k-1},α=(2e0^{-k}/underroot(2πk) and r=n^k(2^{k-1}!)
