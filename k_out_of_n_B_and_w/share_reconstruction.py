@@ -19,6 +19,7 @@ def reconstruct_image(selected_shares, d, alpha, m):
     """
     # Step 1: Initialize the reconstructed image with the same size as the shares
     height, full_width = selected_shares[0].shape
+    num_subpixels = full_width // selected_shares[0].shape[1]
     reconstructed_image = np.zeros((height, full_width), dtype=int)
 
     # Step 2: Combine the shares
@@ -44,7 +45,9 @@ def reconstruct_image(selected_shares, d, alpha, m):
 def share_reconstruction():
     """Handle the share reconstruction process through GUI."""
     # Step 1: Get the number of shares (k) for reconstruction
+    l = simpledialog.askinteger("Input", "Enter the number of shares  reconstruction (k):")
     k = simpledialog.askinteger("Input", "Enter the number of shares you want to use for reconstruction (k):")
+    
     if not k:
         return
 
@@ -66,9 +69,9 @@ def share_reconstruction():
             share_folder = os.path.dirname(file_path)
 
     # Step 3: Calculate parameters (d, alpha, m) based on k
-    m = 2 ** (k - 1)  # Number of subpixels per pixel
+    m = 2 ** (l - 1)  # Number of subpixels per pixel
     d = m             # Threshold for black pixels
-    alpha = 1 / (2 ** (k - 1))  # Relative difference factor
+    alpha = 1 / (2 ** (l - 1))  # Relative difference factor
 
     # Step 4: Reconstruct the image
     reconstructed_image = reconstruct_image(selected_shares, d, alpha, m)

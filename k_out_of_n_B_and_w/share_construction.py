@@ -77,7 +77,7 @@ def construct_shares_k_out_n(image, k, n, image_label):
 
 def share_construction():
     """Handle the share construction process through GUI."""
-    file_path = filedialog.askopenfilename(title="Select an image", filetypes=[("Image files", "*.jpeg"),("Image files", "*.png")])
+    file_path = filedialog.askopenfilename(title="Select an image", filetypes=[("Image files", "*.jpeg"),("Image files", "*.png"),("Image files", "*.jpg")])
     if not file_path:
         return
 
