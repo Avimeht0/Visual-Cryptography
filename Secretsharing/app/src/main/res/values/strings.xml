@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Secret Sharing</string>
+    <string name="share_construction">Share Construction</string>
+    <string name="share_reconstruction">Share Reconstruction</string>
+    <string name="select_image">Select Image</string>
+    <string name="change_image">Change Image</string>
+    <string name="generate_shares">Generate Shares</string>
+    <string name="reconstruct_image">Reconstruct Image</string>
+    <string name="back">Back</string>
+    <string name="minimum_shares">Minimum shares required (k)</string>
+    <string name="total_shares">Total shares to generate (n)</string>
+    <string name="shares_to_use">Number of shares to use (k)</string>
+</resources>
